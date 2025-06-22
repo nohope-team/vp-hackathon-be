@@ -1,0 +1,54 @@
+version: '3.8'
+
+services:
+  multi-agent-api:
+    build: .
+    ports:
+      - "8000:8000"
+    environment:
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+      - BEDROCK_MODEL_ID=${BEDROCK_MODEL_ID}
+      - BEDROCK_AGENT_ID=${BEDROCK_AGENT_ID}
+      - STEP_FUNCTION_ARN=${STEP_FUNCTION_ARN}
+      - SQS_QUEUE_URL=${SQS_QUEUE_URL}
+      - SNS_TOPIC_ARN=${SNS_TOPIC_ARN}
+      - DYNAMODB_TABLE_NAME=${DYNAMODB_TABLE_NAME}
+      - S3_BUCKET_NAME=${S3_BUCKET_NAME}
+      - ENVIRONMENT=development
+    volumes:
+      - ./logs:/app/logs
+      - ./.env:/app/.env
+    restart: unless-stopped
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8000/api/v1/health"]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 40s
+
+  # Local DynamoDB for development
+  dynamodb-local:
+    image: amazon/dynamodb-local:latest
+    ports:
+      - "8001:8000"
+    command: ["-jar", "DynamoDBLocal.jar", "-sharedDb", "-inMemory"]
+    profiles:
+      - local
+
+  # X-Ray daemon for tracing
+  xray-daemon:
+    image: amazon/aws-xray-daemon:latest
+    ports:
+      - "2000:2000/udp"
+    environment:
+      - AWS_REGION=${AWS_REGION}
+      - AWS_ACCESS_KEY_ID=${AWS_ACCESS_KEY_ID}
+      - AWS_SECRET_ACCESS_KEY=${AWS_SECRET_ACCESS_KEY}
+    profiles:
+      - xray
+
+networks:
+  default:
+    name: multi-agent-network
