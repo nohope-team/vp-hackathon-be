@@ -1,0 +1,26 @@
+[
+  {
+    "name": "DataAnalysisAgent",
+    "agent_arn": "arn:aws:bedrock:us-east-1:123456789012:agent-alias/DATA_AGENT/TSTALIASID",
+    "prompt_template": "Analyze the following data and provide insights: $.input",
+    "specialization": "data_analysis"
+  },
+  {
+    "name": "RecommendationAgent",
+    "agent_arn": "arn:aws:bedrock:us-east-1:123456789012:agent-alias/REC_AGENT/TSTALIASID", 
+    "prompt_template": "Based on the analysis, provide actionable recommendations for: $.input",
+    "specialization": "recommendations"
+  },
+  {
+    "name": "QualityAssuranceAgent",
+    "agent_arn": "arn:aws:bedrock:us-east-1:123456789012:agent-alias/QA_AGENT/TSTALIASID",
+    "prompt_template": "Review and validate the quality of the response for: $.input",
+    "specialization": "quality_check"
+  },
+  {
+    "name": "SummaryAgent",
+    "agent_arn": "arn:aws:bedrock:us-east-1:123456789012:agent-alias/SUMMARY_AGENT/TSTALIASID",
+    "prompt_template": "Summarize the key points and create a final response for: $.input",
+    "specialization": "summarization"
+  }
+]

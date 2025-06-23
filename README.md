@@ -75,6 +75,35 @@ docker-compose --profile xray up --build
 
 ## API Usage
 
+### Bedrock Flow Endpoints
+
+#### Create Flow from JSON Config
+```bash
+curl -X POST "http://localhost:8000/api/v1/flow/create" \
+  -H "Content-Type: application/json" \
+  -d @examples/flow_config.json
+```
+
+#### Create Multi-Agent Flow
+```bash
+curl -X POST "http://localhost:8000/api/v1/flow/create-multi-agent" \
+  -H "Content-Type: application/json" \
+  -d @examples/multi_agent_config.json
+```
+
+#### Execute Flow
+```bash
+curl -X POST "http://localhost:8000/api/v1/flow/execute" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "flow_name": "CustomerSupportMultiAgent",
+    "inputs": {
+      "customer_query": "I need help with my order"
+    },
+    "session_id": "flow-session-123"
+  }'
+```
+
 ### Chat Endpoint
 ```bash
 curl -X POST "http://localhost:8000/api/v1/chat" \
