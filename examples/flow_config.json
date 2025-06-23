@@ -1,0 +1,117 @@
+{
+  "name": "CustomerSupportMultiAgent",
+  "description": "Multi-agent flow for customer support with analysis, recommendation, and quality check",
+  "nodes": [
+    {
+      "name": "InputNode",
+      "type": "Input",
+      "configuration": {
+        "input": {
+          "expression": "$.customer_query"
+        }
+      }
+    },
+    {
+      "name": "AnalysisAgent",
+      "type": "Agent",
+      "configuration": {
+        "agentAliasArn": "arn:aws:bedrock:us-east-1:123456789012:agent-alias/AGENT1/ALIAS1",
+        "input": {
+          "text": "Analyze this customer query for sentiment and intent: $.customer_query"
+        }
+      }
+    },
+    {
+      "name": "KnowledgeBaseNode",
+      "type": "KnowledgeBase",
+      "configuration": {
+        "knowledgeBaseId": "KB123456",
+        "input": {
+          "text": "$.customer_query"
+        }
+      }
+    },
+    {
+      "name": "RecommendationAgent",
+      "type": "Agent",
+      "configuration": {
+        "agentAliasArn": "arn:aws:bedrock:us-east-1:123456789012:agent-alias/AGENT2/ALIAS2",
+        "input": {
+          "text": "Based on analysis: $.AnalysisAgent.output and knowledge: $.KnowledgeBaseNode.output, provide recommendations for: $.customer_query"
+        }
+      }
+    },
+    {
+      "name": "QualityCheckAgent",
+      "type": "Agent",
+      "configuration": {
+        "agentAliasArn": "arn:aws:bedrock:us-east-1:123456789012:agent-alias/AGENT3/ALIAS3",
+        "input": {
+          "text": "Review the quality of this recommendation: $.RecommendationAgent.output for query: $.customer_query"
+        }
+      }
+    },
+    {
+      "name": "ResponseAggregator",
+      "type": "Prompt",
+      "configuration": {
+        "promptTemplate": {
+          "text": "Customer Query: $.customer_query\n\nAnalysis: $.AnalysisAgent.output\n\nKnowledge Base Info: $.KnowledgeBaseNode.output\n\nRecommendation: $.RecommendationAgent.output\n\nQuality Check: $.QualityCheckAgent.output\n\nFinal Response: Provide a comprehensive customer support response based on the above information."
+        }
+      }
+    },
+    {
+      "name": "OutputNode",
+      "type": "Output",
+      "configuration": {
+        "output": {
+          "expression": "$.ResponseAggregator.output"
+        }
+      }
+    }
+  ],
+  "connections": [
+    {
+      "name": "InputToAnalysis",
+      "source": "InputNode",
+      "target": "AnalysisAgent",
+      "configuration": {}
+    },
+    {
+      "name": "InputToKnowledgeBase",
+      "source": "InputNode", 
+      "target": "KnowledgeBaseNode",
+      "configuration": {}
+    },
+    {
+      "name": "AnalysisToRecommendation",
+      "source": "AnalysisAgent",
+      "target": "RecommendationAgent",
+      "configuration": {}
+    },
+    {
+      "name": "KnowledgeToRecommendation",
+      "source": "KnowledgeBaseNode",
+      "target": "RecommendationAgent", 
+      "configuration": {}
+    },
+    {
+      "name": "RecommendationToQuality",
+      "source": "RecommendationAgent",
+      "target": "QualityCheckAgent",
+      "configuration": {}
+    },
+    {
+      "name": "AllToAggregator",
+      "source": "QualityCheckAgent",
+      "target": "ResponseAggregator",
+      "configuration": {}
+    },
+    {
+      "name": "AggregatorToOutput",
+      "source": "ResponseAggregator",
+      "target": "OutputNode",
+      "configuration": {}
+    }
+  ]
+}
