@@ -1,8 +1,8 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
-from aws_xray_sdk.core import xray_recorder
+# from aws_xray_sdk.core import xray_recorder
 from aws_xray_sdk.core import patch_all
-from aws_xray_sdk.ext.fastapi import XRayMiddleware
+# from aws_xray_sdk.ext.fastapi import XRayMiddleware
 
 from app.configs.settings import settings
 from app.routes.chat import router as chat_router
@@ -13,23 +13,24 @@ from app.utils.logger import app_logger
 patch_all()
 
 # Configure X-Ray
-xray_recorder.configure(
-    context_missing='LOG_ERROR',
-    plugins=('EC2Plugin', 'ECSPlugin'),
-    daemon_address='127.0.0.1:2000',
-    use_ssl=False
-)
+# xray_recorder.configure(
+#     context_missing='LOG_ERROR',
+#     plugins=('EC2Plugin', 'ECSPlugin'),
+#     daemon_address='127.0.0.1:2000',
+#     use_ssl=False
+# )
 
 app = FastAPI(
     title=settings.app_name,
     version=settings.app_version,
     description="Multi-Agent Platform Backend with Amazon Bedrock",
-    docs_url="/docs" if settings.environment == "development" else None,
-    redoc_url="/redoc" if settings.environment == "development" else None
+    docs_url="/docs",
+    redoc_url="/redoc",
+    openapi_url="/openapi.json"
 )
 
 # Add X-Ray middleware
-app.add_middleware(XRayMiddleware, recorder=xray_recorder)
+# app.add_middleware(XRayMiddleware, recorder=xray_recorder)
 
 # Add CORS middleware
 app.add_middleware(

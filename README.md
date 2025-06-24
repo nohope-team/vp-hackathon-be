@@ -22,6 +22,7 @@ API Gateway → FastAPI → Step Functions (SuperAgent) → Bedrock Agents (SubA
 - ✅ Monitoring với CloudWatch và X-Ray tracing
 - ✅ Structured JSON logging
 - ✅ Docker containerization
+- ✅ Swagger UI/ReDoc documentation
 
 ## Cài đặt Local
 
@@ -130,6 +131,12 @@ curl -X POST "http://localhost:8000/api/v1/chat" \
 ```bash
 curl http://localhost:8000/api/v1/health
 ```
+
+### Swagger UI
+Truy cập giao diện Swagger để test API:
+- **Swagger UI**: http://localhost:8000/docs
+- **ReDoc**: http://localhost:8000/redoc
+- **OpenAPI JSON**: http://localhost:8000/openapi.json
 
 ## AWS Services Setup
 

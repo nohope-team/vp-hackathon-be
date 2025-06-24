@@ -25,8 +25,8 @@ class BedrockFlowService:
                 description=flow_def.description or "",
                 executionRoleArn=self._get_execution_role_arn(),
                 definition={
-                    "nodes": [self._convert_node_to_bedrock_format(node) for node in flow_def.nodes],
-                    "connections": [self._convert_connection_to_bedrock_format(conn) for conn in flow_def.connections]
+                    "nodes": [self._convert_node_to_bedrock_format(node) for node in flow_def.definition.nodes],
+                    "connections": [self._convert_connection_to_bedrock_format(conn) for conn in flow_def.definition.connections]
                 }
             )
             
@@ -186,7 +186,9 @@ class BedrockFlowService:
         return {
             "name": node.name,
             "type": node.type.value,
-            "configuration": node.configuration
+            "configuration": node.configuration,
+            "inputs": node.inputs or [],
+            "outputs": node.outputs or []
         }
     
     def _convert_connection_to_bedrock_format(self, connection) -> Dict[str, Any]:
@@ -195,6 +197,7 @@ class BedrockFlowService:
             "name": connection.name,
             "source": connection.source,
             "target": connection.target,
+            "type": connection.type.value,
             "configuration": connection.configuration or {}
         }
     
