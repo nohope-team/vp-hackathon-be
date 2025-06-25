@@ -19,6 +19,10 @@ class AWSClientManager:
         return self.session.client('bedrock-agent-runtime')
     
     @property
+    def bedrock_agent(self):
+        return self.session.client('bedrock-agent')
+    
+    @property
     def stepfunctions(self):
         return self.session.client('stepfunctions')
     
