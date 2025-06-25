@@ -1,0 +1,22 @@
+{
+  "flow_id": "FLOW123456",
+  "message": "Hello, I need help with analyzing customer feedback data",
+  "session_id": "chat-session-123",
+  "conversation_history": [
+    {
+      "role": "user",
+      "content": "Hi there!",
+      "timestamp": "2024-01-01T10:00:00Z"
+    },
+    {
+      "role": "assistant", 
+      "content": "Hello! How can I help you today?",
+      "timestamp": "2024-01-01T10:00:05Z"
+    }
+  ],
+  "flow_inputs": {
+    "context": "customer_support",
+    "priority": "high",
+    "department": "analytics"
+  }
+}
