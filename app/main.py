@@ -7,6 +7,7 @@ from aws_xray_sdk.core import patch_all
 from app.configs.settings import settings
 from app.routes.chat import router as chat_router
 from app.routes.flow import router as flow_router
+from app.routes.facebook_workflow import router as facebook_workflow_router
 from app.utils.logger import app_logger
 
 # Patch AWS SDK for X-Ray tracing
@@ -44,6 +45,7 @@ app.add_middleware(
 # Include routers
 app.include_router(chat_router)
 app.include_router(flow_router)
+app.include_router(facebook_workflow_router)
 
 
 @app.on_event("startup")
