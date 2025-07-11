@@ -33,7 +33,8 @@ class Settings(BaseSettings):
     app_version: str = "1.0.0"
     log_level: str = "INFO"
     environment: str = "development"
-    
+
+    database_url: Optional[str] = None
     # VPC Configuration
     vpc_id: Optional[str] = None
     subnet_ids: Optional[str] = None
