@@ -32,6 +32,27 @@ class DatabaseService:
         finally:
             await conn.close()
     
+    async def create_facebook_workflow(self, workflow_data: FacebookWorkflowData) -> Dict[str, Any]:
+        conn = await self.get_connection()
+        try:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO facebook_workflow_data 
+                (user_question, chatbot_intent, vpbank_source, confidence_score, answer, state)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                RETURNING *
+                """,
+                workflow_data.user_question,
+                workflow_data.chatbot_intent,
+                workflow_data.vpbank_source,
+                workflow_data.confidence_score,
+                workflow_data.answer,
+                workflow_data.state
+            )
+            return dict(row)
+        finally:
+            await conn.close()
+    
     async def update_facebook_workflow(self, workflow_id: int, update_data: FacebookWorkflowUpdate) -> Optional[Dict[str, Any]]:
         conn = await self.get_connection()
         try:

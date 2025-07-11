@@ -1,6 +1,6 @@
 from fastapi import APIRouter, HTTPException, Query
 from typing import List, Dict, Any
-from app.models.facebook_workflow import FacebookWorkflowUpdate
+from app.models.facebook_workflow import FacebookWorkflowData, FacebookWorkflowUpdate
 from app.services.database_service import database_service
 
 router = APIRouter(prefix="/api/v1/facebook-workflow", tags=["Facebook Workflow"])
@@ -20,6 +20,11 @@ async def get_facebook_workflow(workflow_id: int):
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
     return workflow
+
+@router.post("/", response_model=Dict[str, Any], status_code=201)
+async def create_facebook_workflow(workflow_data: FacebookWorkflowData):
+    """Create new Facebook workflow record"""
+    return await database_service.create_facebook_workflow(workflow_data)
 
 @router.put("/{workflow_id}", response_model=Dict[str, Any])
 async def update_facebook_workflow(workflow_id: int, update_data: FacebookWorkflowUpdate):
