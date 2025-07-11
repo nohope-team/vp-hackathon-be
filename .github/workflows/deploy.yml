@@ -1,0 +1,33 @@
+name: Deploy to Server
+
+on:
+  push:
+    branches:
+      - main
+      - update-ci-cd
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    name: Deploy VPBank Hackathon AI Workflow 
+
+    steps:
+    - name: Checkout code
+      uses: actions/checkout@v4
+      
+    - name: Set up SSH key
+      run: |
+        echo "${{ secrets.SSH_PRIVATE_KEY }}" > ssh_key
+        chmod 600 ssh_key 
+        
+    - name: Deploy to server
+      run: |
+        ssh -i ssh_key -o StrictHostKeyChecking=no ${{ secrets.SSH_USER }}@${{ secrets.SERVER_HOST }} "
+          cd ${{ secrets.PROJECT_PATH }} &&
+          git pull &&
+          docker build -t vpbank-api:latest -f Dockerfile . &&
+          docker stop vpbank-api || true &&
+          docker rm vpbank-api || true &&
+          docker run -d --name vpbank-api --restart always -p 8082:8000 -d vpbank-api:latest
+        "
+      
