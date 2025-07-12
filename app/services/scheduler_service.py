@@ -1,4 +1,6 @@
 import asyncio
+import json
+
 from apscheduler.schedulers.asyncio import AsyncIOScheduler
 from apscheduler.triggers.interval import IntervalTrigger
 from app.services.n8n_service import n8n_service
@@ -73,7 +75,7 @@ class SchedulerService:
             for execution in unprocessed:
                 try:
                     # Create Langfuse trace
-                    trace_id = langfuse_service.create_trace_from_execution(execution["execution_data"])
+                    trace_id = langfuse_service.create_trace_from_execution(json.loads(execution["execution_data"]))
                     
                     if trace_id:
                         # Mark as processed
