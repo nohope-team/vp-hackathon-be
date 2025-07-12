@@ -40,6 +40,14 @@ class Settings(BaseSettings):
     subnet_ids: Optional[str] = None
     security_group_id: Optional[str] = None
 
+    N8N_BASE_URL: Optional[str] = None
+    N8N_API_KEY: Optional[str] = None
+    N8N_WORKFLOW_ID : Optional[str] = None
+
+    # Langfuse Configuration
+    LANGFUSE_SECRET_KEY : Optional[str] = None
+    LANGFUSE_PUBLIC_KEY : str
+    LANGFUSE_HOST : Optional[str] = None
     class Config:
         env_file = ".env"
         case_sensitive = False
