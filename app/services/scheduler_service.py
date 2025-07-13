@@ -39,27 +39,35 @@ class SchedulerService:
         app_logger.info("Scheduler stopped")
     
     async def collect_n8n_executions(self):
-        """Collect new executions from n8n"""
+        """Collect new executions from n8n for all active flows"""
         try:
             app_logger.info("Starting n8n execution collection")
             
-            # Get latest executions from n8n
-            executions = await n8n_service.get_executions(limit=10)
+            # Get all active flows from database
+            active_flows = await database_service.get_active_flows()
+            print(active_flows)
+            total_new_executions = 0
             
-            # Get max execution ID from database to avoid duplicates
-            max_id = await database_service.get_max_execution_id()
+            for flow in active_flows:
+                flow_id = flow["flow_id"]
+                
+                # Get latest executions for this flow
+                executions = await n8n_service.get_executions(workflow_id=flow_id, limit=100)
+                
+                # Get max execution ID for this specific workflow
+                max_id = await database_service.get_max_execution_id_for_workflow(flow_id)
+                new_executions = [ex for ex in executions if int(ex["id"]) > max_id]
+                
+                for execution in new_executions:
+                    # Get detailed execution data
+                    detailed_execution = await n8n_service.get_execution_detail(execution["id"])
+                    if detailed_execution:
+                        await database_service.save_n8n_execution(detailed_execution)
+                        app_logger.info(f"Saved execution {execution['id']} for flow {flow_id}")
+                
+                total_new_executions += len(new_executions)
             
-            new_executions = [ex for ex in executions if int(ex["id"]) > max_id]
-            
-            for execution in new_executions:
-                # Get detailed execution data
-                detailed_execution = await n8n_service.get_execution_detail(execution["id"])
-                if detailed_execution:
-                    print("ádfasdfasd",detailed_execution.get("startedAt"))
-                    await database_service.save_n8n_execution(detailed_execution)
-                    app_logger.info(f"Saved execution {execution['id']}")
-            
-            app_logger.info(f"Collected {len(new_executions)} new executions")
+            app_logger.info(f"Collected {total_new_executions} new executions from {len(active_flows)} flows")
             
         except Exception as e:
             app_logger.error(f"Error collecting n8n executions: {e}")

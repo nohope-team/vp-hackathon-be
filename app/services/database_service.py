@@ -138,5 +138,49 @@ class DatabaseService:
             return result or 0
         finally:
             await conn.close()
+    
+    async def get_max_execution_id_for_workflow(self, workflow_id: str) -> int:
+        conn = await self.get_connection()
+        try:
+            result = await conn.fetchval(
+                "SELECT COALESCE(MAX(id), 0) FROM n8n_executions WHERE workflow_id = $1",
+                workflow_id
+            )
+            return result or 0
+        finally:
+            await conn.close()
+    
+    # n8n flow methods
+    async def add_n8n_flow(self, flow_data: dict) -> Dict[str, Any]:
+        conn = await self.get_connection()
+        try:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO n8n_flows (flow_id, flow_name, description, is_active)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (flow_id) DO UPDATE SET
+                    flow_name = EXCLUDED.flow_name,
+                    description = EXCLUDED.description,
+                    is_active = EXCLUDED.is_active
+                RETURNING *
+                """,
+                flow_data["flow_id"],
+                flow_data.get("flow_name"),
+                flow_data.get("description"),
+                flow_data.get("is_active", True)
+            )
+            return dict(row)
+        finally:
+            await conn.close()
+    
+    async def get_active_flows(self) -> List[Dict[str, Any]]:
+        conn = await self.get_connection()
+        try:
+            rows = await conn.fetch(
+                "SELECT * FROM n8n_flows WHERE is_active = true ORDER BY id"
+            )
+            return [dict(row) for row in rows]
+        finally:
+            await conn.close()
 
 database_service = DatabaseService()

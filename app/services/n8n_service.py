@@ -16,16 +16,17 @@ class N8nService:
             self.enabled = True
             self.headers = {"X-N8N-API-KEY": self.api_key}
     
-    async def get_executions(self, limit: int = 5) -> List[Dict[str, Any]]:
+    async def get_executions(self, workflow_id: str = None, limit: int = 5) -> List[Dict[str, Any]]:
         """Get list of executions from n8n"""
         if not self.enabled:
             return []
-            
+        
+        workflow_id = workflow_id or self.workflow_id
         async with httpx.AsyncClient() as client:
             response = await client.get(
                 f"{self.base_url}/api/v1/executions",
                 headers=self.headers,
-                params={"workflowId": self.workflow_id, "limit": limit}
+                params={"workflowId": workflow_id, "limit": limit}
             )
             response.raise_for_status()
             return response.json().get("data", [])

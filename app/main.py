@@ -12,6 +12,7 @@ from app.configs.settings import settings
 from app.routes.chat import router as chat_router
 from app.routes.flow import router as flow_router
 from app.routes.facebook_workflow import router as facebook_workflow_router
+from app.routes.n8n_flow import router as n8n_flow_router
 from app.services.scheduler_service import scheduler_service
 from app.utils.logger import app_logger
 
@@ -51,6 +52,7 @@ app.add_middleware(
 app.include_router(chat_router)
 app.include_router(flow_router)
 app.include_router(facebook_workflow_router)
+app.include_router(n8n_flow_router)
 
 
 @app.on_event("startup")
