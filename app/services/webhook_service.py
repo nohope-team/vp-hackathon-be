@@ -1,11 +1,11 @@
 import httpx
-import os
 from typing import Dict, Any
 from app.utils.logger import app_logger
+from app.configs.settings import settings
 
 class WebhookService:
     def __init__(self):
-        self.webhook_url = os.getenv("FACEBOOK_WEBHOOK_URL","https://dungcao1.app.n8n.cloud/webhook/ff25c7f4-0279-4f76-a12a-caecbf188f52")
+        self.webhook_url = settings.facebook_webhook_url
     
     async def send_facebook_webhook(self, answer: str, sender_id: int, recipient_id: int) -> bool:
         """Send webhook to Facebook with answer and IDs"""

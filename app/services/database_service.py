@@ -1,11 +1,11 @@
 import asyncpg
-import os
 from typing import List, Optional, Dict, Any
 from app.models.facebook_workflow import FacebookWorkflowData, FacebookWorkflowUpdate
+from app.configs.settings import settings
 
 class DatabaseService:
     def __init__(self):
-        self.connection_string = os.getenv("DATABASE_URL", "postgresql://vpbank:vpbanksummer2025@103.69.97.133:5432/vpbank_hackathon")
+        self.connection_string = settings.database_url
     
     async def get_connection(self):
         return await asyncpg.connect(self.connection_string)
