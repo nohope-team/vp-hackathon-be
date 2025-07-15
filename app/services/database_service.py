@@ -38,8 +38,8 @@ class DatabaseService:
             row = await conn.fetchrow(
                 """
                 INSERT INTO facebook_workflow_data 
-                (user_question, chatbot_intent, vpbank_source, confidence_score, answer, state)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                (user_question, chatbot_intent, vpbank_source, confidence_score, answer, state, sender_id, recipient_id, page_name)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 RETURNING *
                 """,
                 workflow_data.user_question,
@@ -47,7 +47,10 @@ class DatabaseService:
                 workflow_data.vpbank_source,
                 workflow_data.confidence_score,
                 workflow_data.answer,
-                workflow_data.state
+                workflow_data.state,
+                workflow_data.sender_id,
+                workflow_data.recipient_id,
+                workflow_data.page_name
             )
             return dict(row)
         finally:

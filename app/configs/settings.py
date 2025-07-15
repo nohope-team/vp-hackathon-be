@@ -40,6 +40,7 @@ class Settings(BaseSettings):
     subnet_ids: Optional[str] = None
     security_group_id: Optional[str] = None
 
+    facebook_webhook_url: Optional[str] = None
     class Config:
         env_file = ".env"
         case_sensitive = False
