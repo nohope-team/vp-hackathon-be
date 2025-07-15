@@ -9,6 +9,9 @@ class FacebookWorkflowData(BaseModel):
     confidence_score: Optional[int] = None
     answer: Optional[str] = None
     state: Optional[str] = "pending"
+    sender_id: Optional[int] = None
+    recipient_id: Optional[int] = None
+    page_name: Optional[str] = None
 
 class FacebookWorkflowUpdate(BaseModel):
     chatbot_intent: Optional[str] = None
@@ -16,3 +19,6 @@ class FacebookWorkflowUpdate(BaseModel):
     confidence_score: Optional[int] = None
     answer: Optional[str] = None
     state: Optional[str] = None
+    sender_id: Optional[int] = None
+    recipient_id: Optional[int] = None
+    page_name: Optional[str] = None
