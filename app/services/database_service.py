@@ -1,5 +1,10 @@
+import json
+
 import asyncpg
 from typing import List, Optional, Dict, Any
+
+from dateutil.parser import isoparse
+
 from app.models.facebook_workflow import FacebookWorkflowData, FacebookWorkflowUpdate
 from app.configs.settings import settings
 
@@ -83,6 +88,101 @@ class DatabaseService:
             
             row = await conn.fetchrow(query, *values)
             return dict(row) if row else None
+        finally:
+            await conn.close()
+    
+    # n8n execution methods
+    async def save_n8n_execution(self, execution_data: dict) -> None:
+        conn = await self.get_connection()
+        print(
+                isoparse(execution_data.get("startedAt"))
+            )
+        try:
+            await conn.execute(
+                """
+                INSERT INTO n8n_executions (id, workflow_id, status, started_at, finished_at, execution_data)
+                VALUES ($1, $2, $3, $4, $5, $6)
+                ON CONFLICT (id) DO NOTHING
+                """,
+                int(execution_data["id"]),
+                execution_data.get("workflowId"),
+                execution_data.get("status"),
+                isoparse(execution_data.get("startedAt")).astimezone(tz=None).replace(tzinfo=None),
+                isoparse(execution_data.get("stoppedAt")).astimezone(tz=None).replace(tzinfo=None),
+                json.dumps(execution_data)
+            )
+        finally:
+            await conn.close()
+    
+    async def get_unprocessed_executions(self) -> List[Dict[str, Any]]:
+        conn = await self.get_connection()
+        try:
+            rows = await conn.fetch(
+                "SELECT * FROM n8n_executions WHERE processed = false ORDER BY id"
+            )
+            return [dict(row) for row in rows]
+        finally:
+            await conn.close()
+    
+    async def mark_execution_processed(self, execution_id: int, trace_id: str) -> None:
+        conn = await self.get_connection()
+        try:
+            await conn.execute(
+                "UPDATE n8n_executions SET processed = true, langfuse_trace_id = $1 WHERE id = $2",
+                trace_id, execution_id
+            )
+        finally:
+            await conn.close()
+    
+    async def get_max_execution_id(self) -> int:
+        conn = await self.get_connection()
+        try:
+            result = await conn.fetchval("SELECT COALESCE(MAX(id), 0) FROM n8n_executions")
+            return result or 0
+        finally:
+            await conn.close()
+    
+    async def get_max_execution_id_for_workflow(self, workflow_id: str) -> int:
+        conn = await self.get_connection()
+        try:
+            result = await conn.fetchval(
+                "SELECT COALESCE(MAX(id), 0) FROM n8n_executions WHERE workflow_id = $1",
+                workflow_id
+            )
+            return result or 0
+        finally:
+            await conn.close()
+    
+    # n8n flow methods
+    async def add_n8n_flow(self, flow_data: dict) -> Dict[str, Any]:
+        conn = await self.get_connection()
+        try:
+            row = await conn.fetchrow(
+                """
+                INSERT INTO n8n_flows (flow_id, flow_name, description, is_active)
+                VALUES ($1, $2, $3, $4)
+                ON CONFLICT (flow_id) DO UPDATE SET
+                    flow_name = EXCLUDED.flow_name,
+                    description = EXCLUDED.description,
+                    is_active = EXCLUDED.is_active
+                RETURNING *
+                """,
+                flow_data["flow_id"],
+                flow_data.get("flow_name"),
+                flow_data.get("description"),
+                flow_data.get("is_active", True)
+            )
+            return dict(row)
+        finally:
+            await conn.close()
+    
+    async def get_active_flows(self) -> List[Dict[str, Any]]:
+        conn = await self.get_connection()
+        try:
+            rows = await conn.fetch(
+                "SELECT * FROM n8n_flows WHERE is_active = true ORDER BY id"
+            )
+            return [dict(row) for row in rows]
         finally:
             await conn.close()
 

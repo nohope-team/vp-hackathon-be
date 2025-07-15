@@ -48,8 +48,8 @@ class Settings(BaseSettings):
     n8n_workflow_id: Optional[str] = None
     
     # Langfuse Configuration
-    langfuse_secret_key: Optional[str] = None
-    langfuse_public_key: Optional[str] = None
+    langfuse_secret_key: str= "sk-lf-40484669-8a8e-4fdf-8f70-296c2deef06a"
+    langfuse_public_key: str= "pk-lf-e2285dc1-130f-46a0-a4ec-309e7cf3be98"
     langfuse_host: str = "https://cloud.langfuse.com"
     
     class Config:

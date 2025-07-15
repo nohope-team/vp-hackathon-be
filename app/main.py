@@ -1,13 +1,19 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
+from dotenv import load_dotenv
 # from aws_xray_sdk.core import xray_recorder
 from aws_xray_sdk.core import patch_all
 # from aws_xray_sdk.ext.fastapi import XRayMiddleware
+
+# Load environment variables from .env file
+load_dotenv()
 
 from app.configs.settings import settings
 from app.routes.chat import router as chat_router
 from app.routes.flow import router as flow_router
 from app.routes.facebook_workflow import router as facebook_workflow_router
+from app.routes.n8n_flow import router as n8n_flow_router
+from app.services.scheduler_service import scheduler_service
 from app.utils.logger import app_logger
 
 # Patch AWS SDK for X-Ray tracing
@@ -46,6 +52,7 @@ app.add_middleware(
 app.include_router(chat_router)
 app.include_router(flow_router)
 app.include_router(facebook_workflow_router)
+app.include_router(n8n_flow_router)
 
 
 @app.on_event("startup")
@@ -54,11 +61,15 @@ async def startup_event():
     app_logger.info(f"Starting {settings.app_name} v{settings.app_version}")
     app_logger.info(f"Environment: {settings.environment}")
     app_logger.info(f"AWS Region: {settings.aws_region}")
+    
+    # Start scheduler for n8n collection and Langfuse processing
+    scheduler_service.start()
 
 
 @app.on_event("shutdown")
 async def shutdown_event():
     """Application shutdown event"""
+    scheduler_service.stop()
     app_logger.info(f"Shutting down {settings.app_name}")
 
 
