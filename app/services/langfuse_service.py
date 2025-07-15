@@ -2,6 +2,8 @@ import os
 from langfuse import Langfuse
 from typing import Dict, Any
 from datetime import datetime
+
+from app.configs.settings import settings
 from app.utils.logger import app_logger
 
 class LangfuseService:
@@ -9,7 +11,7 @@ class LangfuseService:
         self.langfuse = Langfuse(
             secret_key='sk-lf-40484669-8a8e-4fdf-8f70-296c2deef06a',
             public_key='pk-lf-e2285dc1-130f-46a0-a4ec-309e7cf3be98',
-            host=os.getenv("LANGFUSE_HOST", "http://localhost:3000")
+            host=settings.langfuse_host
         )
     
     def create_trace_from_execution(self, execution_data: Dict[str, Any]) -> str:
