@@ -17,16 +17,32 @@ class LangfuseService:
     def create_trace_from_execution(self, execution_data: Dict[str, Any]) -> str:
         """Convert n8n execution to Langfuse trace"""
         try:
+            # Get workflow data for better context
+            workflow_data = execution_data.get("workflowData", {})
+            workflow_name = workflow_data.get("name", "Unknown Workflow")
+            
+            # Extract initial input from trigger node
+            initial_input = self._extract_initial_input(execution_data)
+            
+            # Extract final output from last executed node
+            final_output = self._extract_final_output(execution_data)
+            
+            total_latency, total_tokens = self._calculate_totals(execution_data)
+
             trace = self.langfuse.trace(
-                name=f"n8n-execution-{execution_data['id']}",
-                input=execution_data.get("data", {}).get("startData", {}),
-                output=execution_data.get("data", {}).get("resultData", {}),
+                name=f"{workflow_name}-{execution_data['id']}",
+                input=initial_input,
+                output=final_output,
                 metadata={
                     "workflow_id": execution_data.get("workflowId"),
+                    "workflow_name": workflow_name,
                     "status": execution_data.get("status"),
                     "mode": execution_data.get("mode"),
-                    "n8n_execution_id": execution_data["id"]
+                    "n8n_execution_id": execution_data["id"],
+                    "last_node_executed": execution_data.get("data", {}).get("resultData", {}).get("lastNodeExecuted"),
+                    "total_latency_ms": total_latency
                 },
+                usage=total_tokens,
                 start_time=self._parse_datetime(execution_data.get("startedAt")),
                 end_time=self._parse_datetime(execution_data.get("stoppedAt")),
                 tags=["n8n", "workflow", execution_data.get("status", "unknown")]
@@ -35,6 +51,7 @@ class LangfuseService:
             # Add spans for each node execution
             if execution_data.get("data", {}).get("resultData", {}).get("runData"):
                 self._add_node_spans(trace, execution_data["data"]["resultData"]["runData"])
+            
             print(trace.id)
             # Flush to ensure trace is sent immediately
             self.langfuse.flush()
@@ -43,23 +60,156 @@ class LangfuseService:
         except Exception as e:
             app_logger.error(f"Failed to create Langfuse trace: {e}")
             return None
-    
+
+    def _extract_initial_input(self, execution_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract initial input from trigger node or first node"""
+        run_data = execution_data.get("data", {}).get("resultData", {}).get("runData", {})
+        
+        # Look for trigger node first
+        trigger_nodes = ["When Executed by Another Workflow", "Webhook", "Manual Trigger"]
+        for trigger_node in trigger_nodes:
+            if trigger_node in run_data and run_data[trigger_node]:
+                first_run = run_data[trigger_node][0]
+                if first_run.get("data", {}).get("main"):
+                    return first_run["data"]["main"][0][0].get("json", {}) if first_run["data"]["main"][0] else {}
+        
+        # Fallback to startData
+        return execution_data.get("data", {}).get("startData", {})
+
+    def _extract_final_output(self, execution_data: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract final output from last executed node"""
+        last_node = execution_data.get("data", {}).get("resultData", {}).get("lastNodeExecuted")
+        run_data = execution_data.get("data", {}).get("resultData", {}).get("runData", {})
+        
+        if last_node and last_node in run_data and run_data[last_node]:
+            last_run = run_data[last_node][-1]  # Get the last run of the last node
+            if last_run.get("data", {}).get("main"):
+                main_data = last_run["data"]["main"]
+                if main_data and main_data[0]:  # Check if there's output data
+                    return main_data[0][0].get("json", {}) if main_data[0] else {}
+        
+        # Fallback to resultData
+        return execution_data.get("data", {}).get("resultData", {})
+
     def _add_node_spans(self, trace, run_data: Dict[str, Any]):
         """Add spans for each node execution"""
         for node_name, node_runs in run_data.items():
             for i, run in enumerate(node_runs):
+                # Calculate proper end time
+                start_time = self._parse_datetime_from_timestamp(run.get("startTime"))
+                execution_time_ms = run.get("executionTime", 0)
+                end_time = None
+                if start_time and execution_time_ms:
+                    end_time = start_time + timedelta(milliseconds=execution_time_ms)
+                
+                # Extract input data - prioritize inputOverride for AI nodes
+                input_data = {}
+                if run.get("inputOverride"):
+                    # For AI nodes, inputOverride contains the actual prompt/messages
+                    input_data = run["inputOverride"]
+                elif run.get("source"):
+                    # This node has input from previous nodes
+                    input_data = {"from_nodes": [src.get("previousNode") for src in run["source"]]}
+                
+                # Extract output data - check different data types
+                output_data = {}
+                
+                # For AI language model nodes
+                if run.get("data", {}).get("ai_languageModel"):
+                    ai_data = run["data"]["ai_languageModel"]
+                    if ai_data and ai_data[0] and ai_data[0][0].get("json"):
+                        ai_json = ai_data[0][0]["json"]
+                        if "response" in ai_json:
+                            output_data = {"response": ai_json["response"]}
+                        else:
+                            output_data = ai_json
+                
+                # For regular nodes with main data
+                elif run.get("data", {}).get("main"):
+                    main_data = run["data"]["main"]
+                    if main_data and main_data[0]:
+                        output_data = main_data[0][0].get("json", {}) if main_data[0] else {}
+                
+                # Extract token usage for AI nodes
+                token_usage = self._extract_token_usage(run)
+                
+                span_metadata = {
+                    "node_name": node_name,
+                    "execution_status": run.get("executionStatus"),
+                    "execution_index": run.get("executionIndex"),
+                    "execution_time_ms": execution_time_ms
+                }
+                
+                # Add parent execution info if available
+                if run.get("metadata", {}).get("parentExecution"):
+                    span_metadata["parent_execution"] = run["metadata"]["parentExecution"]
+                
                 trace.span(
-                    name=f"{node_name}-{i}",
-                    input=run.get("data", {}).get("main", [{}])[0] if run.get("data", {}).get("main") else {},
-                    output=run.get("data", {}).get("main", [{}])[-1] if run.get("data", {}).get("main") else {},
-                    start_time=self._parse_datetime(run.get("startTime")),
-                    end_time=self._parse_datetime(run.get("executionTime")),
-                    metadata={
-                        "node_type": run.get("node", {}).get("type"),
-                        "execution_status": run.get("executionStatus")
-                    }
+                    name=f"{node_name}" if i == 0 else f"{node_name}-{i}",
+                    input=input_data,
+                    output=output_data,
+                    start_time=start_time,
+                    end_time=end_time,
+                    metadata=span_metadata,
+                    usage=token_usage if token_usage else None
                 )
-    
+    def _calculate_totals(self, execution_data: Dict[str, Any]) -> tuple:
+        """Calculate total latency and token usage across all nodes"""
+        total_latency = 0
+        total_tokens = {"input": 0, "output": 0, "total": 0}
+        
+        run_data = execution_data.get("data", {}).get("resultData", {}).get("runData", {})
+        
+        for node_name, node_runs in run_data.items():
+            for run in node_runs:
+                # Add execution time
+                execution_time = run.get("executionTime", 0)
+                total_latency += execution_time
+                
+                # Add token usage
+                token_usage = self._extract_token_usage(run)
+                if token_usage:
+                    total_tokens["input"] += token_usage.get("input", 0)
+                    total_tokens["output"] += token_usage.get("output", 0)
+                    total_tokens["total"] += token_usage.get("total", 0)
+        
+        return total_latency, total_tokens if total_tokens["total"] > 0 else None
+
+    def _extract_token_usage(self, run: Dict[str, Any]) -> Dict[str, Any]:
+        """Extract token usage from AI model nodes"""
+        # Check in ai_languageModel data first
+        if run.get("data", {}).get("ai_languageModel"):
+            ai_data = run["data"]["ai_languageModel"]
+            if ai_data and ai_data[0] and ai_data[0][0].get("json", {}).get("tokenUsage"):
+                token_usage = ai_data[0][0]["json"]["tokenUsage"]
+                return {
+                    "input": token_usage.get("promptTokens", 0),
+                    "output": token_usage.get("completionTokens", 0),
+                    "total": token_usage.get("totalTokens", 0)
+                }
+        
+        # Check in response data for nested token usage
+        if run.get("data", {}).get("ai_languageModel"):
+            ai_data = run["data"]["ai_languageModel"]
+            if ai_data and ai_data[0] and ai_data[0][0].get("json", {}).get("response", {}).get("tokenUsage"):
+                token_usage = ai_data[0][0]["json"]["response"]["tokenUsage"]
+                return {
+                    "input": token_usage.get("promptTokens", 0),
+                    "output": token_usage.get("completionTokens", 0),
+                    "total": token_usage.get("totalTokens", 0)
+                }
+        
+        return None
+
+    def _parse_datetime_from_timestamp(self, timestamp: int) -> datetime:
+        """Parse timestamp to datetime object"""
+        if not timestamp:
+            return None
+        try:
+            return datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc)
+        except:
+            return None
+
     def _parse_datetime(self, dt_str: str) -> datetime:
         """Parse datetime string to datetime object"""
         if not dt_str:
