@@ -1,16 +1,16 @@
 import json
 
 import asyncpg
-import os
 from typing import List, Optional, Dict, Any
 
 from dateutil.parser import isoparse
 
 from app.models.facebook_workflow import FacebookWorkflowData, FacebookWorkflowUpdate
+from app.configs.settings import settings
 
 class DatabaseService:
     def __init__(self):
-        self.connection_string = os.getenv("DATABASE_URL", "postgresql://vpbank:vpbanksummer2025@103.69.97.133:5432/vpbank_hackathon")
+        self.connection_string = settings.database_url
     
     async def get_connection(self):
         return await asyncpg.connect(self.connection_string)
@@ -43,8 +43,8 @@ class DatabaseService:
             row = await conn.fetchrow(
                 """
                 INSERT INTO facebook_workflow_data 
-                (user_question, chatbot_intent, vpbank_source, confidence_score, answer, state)
-                VALUES ($1, $2, $3, $4, $5, $6)
+                (user_question, chatbot_intent, vpbank_source, confidence_score, answer, state, sender_id, recipient_id, page_name)
+                VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
                 RETURNING *
                 """,
                 workflow_data.user_question,
@@ -52,7 +52,10 @@ class DatabaseService:
                 workflow_data.vpbank_source,
                 workflow_data.confidence_score,
                 workflow_data.answer,
-                workflow_data.state
+                workflow_data.state,
+                workflow_data.sender_id,
+                workflow_data.recipient_id,
+                workflow_data.page_name
             )
             return dict(row)
         finally:

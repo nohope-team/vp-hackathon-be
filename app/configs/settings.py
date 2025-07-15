@@ -40,14 +40,18 @@ class Settings(BaseSettings):
     subnet_ids: Optional[str] = None
     security_group_id: Optional[str] = None
 
-    N8N_BASE_URL: Optional[str] = None
-    N8N_API_KEY: Optional[str] = None
-    N8N_WORKFLOW_ID : Optional[str] = None
-
+    facebook_webhook_url: Optional[str] = "https://dungcao1.app.n8n.cloud/webhook/ff25c7f4-0279-4f76-a12a-caecbf188f52"
+    
+    # n8n Configuration
+    n8n_base_url: str = "http://localhost:5678"
+    n8n_api_key: Optional[str] = None
+    n8n_workflow_id: Optional[str] = None
+    
     # Langfuse Configuration
-    LANGFUSE_SECRET_KEY : Optional[str] = None
-    LANGFUSE_PUBLIC_KEY : str
-    LANGFUSE_HOST : Optional[str] = None
+    langfuse_secret_key: Optional[str] = None
+    langfuse_public_key: Optional[str] = None
+    langfuse_host: str = "https://cloud.langfuse.com"
+    
     class Config:
         env_file = ".env"
         case_sensitive = False

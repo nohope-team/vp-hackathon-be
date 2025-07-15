@@ -2,6 +2,7 @@ from fastapi import APIRouter, HTTPException, Query
 from typing import List, Dict, Any
 from app.models.facebook_workflow import FacebookWorkflowData, FacebookWorkflowUpdate
 from app.services.database_service import database_service
+from app.services.webhook_service import webhook_service
 
 router = APIRouter(prefix="/api/v1/facebook-workflow", tags=["Facebook Workflow"])
 
@@ -32,4 +33,15 @@ async def update_facebook_workflow(workflow_id: int, update_data: FacebookWorkfl
     workflow = await database_service.update_facebook_workflow(workflow_id, update_data)
     if not workflow:
         raise HTTPException(status_code=404, detail="Workflow not found")
+    
+    # Send webhook if answer, sender_id, and recipient_id are present
+    if (workflow.get("answer") and 
+        workflow.get("sender_id") and 
+        workflow.get("recipient_id")):
+        await webhook_service.send_facebook_webhook(
+            answer=workflow["answer"],
+            sender_id=workflow["sender_id"],
+            recipient_id=workflow["recipient_id"]
+        )
+    
     return workflow

@@ -1,13 +1,15 @@
 import httpx
 import os
 from typing import List, Dict, Any, Optional
+
+from app.configs.settings import settings
 from app.utils.logger import app_logger
 
 class N8nService:
     def __init__(self):
-        self.base_url = os.getenv("N8N_BASE_URL", "http://localhost:5678")
-        self.api_key = os.getenv("N8N_API_KEY",'eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIzMTc5MzA5ZC0xNTA1LTQ4NjctYjYyNC0yNGU2MWVmNDNkNzIiLCJpc3MiOiJuOG4iLCJhdWQiOiJwdWJsaWMtYXBpIiwiaWF0IjoxNzUyMzMzODkwfQ.KkEtxUkZXt5WdF3TSrbThtHpnjC5AEItLPJbMcAD0b0')
-        self.workflow_id = os.getenv("N8N_WORKFLOW_ID",'Lacf09MYPwmGRVY0')
+        self.base_url = settings.n8n_base_url
+        self.api_key = settings.n8n_api_key
+        self.workflow_id = settings.n8n_workflow_id
         print(f"n8n_base_url: {self.base_url}, n8n_api_key: {self.api_key}, n8n_workflow_id: {self.workflow_id}")
         if not all([self.base_url, self.api_key, self.workflow_id]):
             app_logger.warning("n8n configuration missing - service disabled")
