@@ -159,18 +159,20 @@ class DatabaseService:
         try:
             row = await conn.fetchrow(
                 """
-                INSERT INTO n8n_flows (flow_id, flow_name, description, is_active)
-                VALUES ($1, $2, $3, $4)
+                INSERT INTO n8n_flows (flow_id, flow_name, description, is_active, created_at)
+                VALUES ($1, $2, $3, $4, $5)
                 ON CONFLICT (flow_id) DO UPDATE SET
                     flow_name = EXCLUDED.flow_name,
                     description = EXCLUDED.description,
-                    is_active = EXCLUDED.is_active
+                    is_active = EXCLUDED.is_active,
+                    created_at = EXCLUDED.created_at
                 RETURNING *
                 """,
                 flow_data["flow_id"],
                 flow_data.get("flow_name"),
                 flow_data.get("description"),
-                flow_data.get("is_active", True)
+                flow_data.get("is_active", True),
+                flow_data.get("created_at")
             )
             return dict(row)
         finally:
@@ -183,6 +185,21 @@ class DatabaseService:
                 "SELECT * FROM n8n_flows WHERE is_active = true ORDER BY id"
             )
             return [dict(row) for row in rows]
+        finally:
+            await conn.close()
+    
+    async def get_latest_workflow_created_at(self):
+        """Get the latest n8n_created_at timestamp from workflows"""
+        conn = await self.get_connection()
+        try:
+            result = await conn.fetchval(
+                "SELECT MAX(created_at) FROM n8n_flows"
+            )
+            # If no records exist, return None to ensure all workflows are added
+            return result
+        except Exception:
+            # Handle any errors by returning None
+            return None
         finally:
             await conn.close()
 

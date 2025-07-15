@@ -50,5 +50,27 @@ class N8nService:
         except Exception as e:
             app_logger.error(f"Failed to get execution {execution_id}: {e}")
             return None
+    
+    async def get_active_workflows(self, limit: int = 100) -> List[Dict[str, Any]]:
+        """Get list of active workflows from n8n"""
+        if not self.enabled:
+            return []
+        
+        try:
+            async with httpx.AsyncClient() as client:
+                response = await client.get(
+                    f"{self.base_url}/api/v1/workflows",
+                    headers=self.headers,
+                    params={
+                        "active": "true",
+                        "excludePinnedData": "false",
+                        "limit": limit
+                    }
+                )
+                response.raise_for_status()
+                return response.json().get("data", [])
+        except Exception as e:
+            app_logger.error(f"Failed to get active workflows: {e}")
+            return []
 
 n8n_service = N8nService()

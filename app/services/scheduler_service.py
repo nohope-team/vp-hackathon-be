@@ -14,7 +14,15 @@ class SchedulerService:
     
     def start(self):
         """Start the scheduler with jobs"""
-        # Job 1: Collect n8n executions every minute
+        # Job 1: Sync n8n workflows every 5 minutes
+        self.scheduler.add_job(
+            self.sync_workflows,
+            trigger=IntervalTrigger(minutes=1),
+            id="sync_workflows",
+            name="Sync n8n Workflows"
+        )
+        
+        # Job 2: Collect n8n executions every minute
         self.scheduler.add_job(
             self.collect_n8n_executions,
             trigger=IntervalTrigger(minutes=1),
@@ -22,7 +30,7 @@ class SchedulerService:
             name="Collect n8n Executions"
         )
         
-        # Job 2: Process executions to Langfuse every minute
+        # Job 3: Process executions to Langfuse every minute
         self.scheduler.add_job(
             self.process_executions_to_langfuse,
             trigger=IntervalTrigger(minutes=1),
@@ -38,6 +46,82 @@ class SchedulerService:
         self.scheduler.shutdown()
         app_logger.info("Scheduler stopped")
     
+    async def sync_workflows(self):
+        """Sync active workflows from n8n to database"""
+        try:
+            app_logger.info("Starting workflow sync from n8n")
+            
+            # Get active workflows from n8n
+            active_workflows = await n8n_service.get_active_workflows()
+            
+            # Get existing workflow IDs and creation times from database
+            existing_flows = await database_service.get_active_flows()
+            existing_flow_ids = {flow["flow_id"] for flow in existing_flows}
+            
+            # Get latest creation timestamp from database
+            latest_created_at = await database_service.get_latest_workflow_created_at()
+            
+            # Track stats
+            stats = {
+                "total": len(active_workflows),
+                "new": 0,
+                "existing": 0,
+                "error": 0
+            }
+            
+            # Process each workflow
+            for workflow in active_workflows:
+                try:
+                    flow_id = workflow.get("id")
+                    if not flow_id:
+                        continue
+                    
+                    # Parse n8n creation timestamp
+                    n8n_created_at = self._parse_datetime(workflow.get("createdAt"))
+                    
+                    # Skip if workflow exists and creation time is not newer
+                    # If latest_created_at is None (empty table), don't skip any workflows
+                    if flow_id in existing_flow_ids and latest_created_at and (not n8n_created_at or n8n_created_at <= latest_created_at):
+                        stats["existing"] += 1
+                        continue
+                    
+                    # Add new workflow to database
+                    flow_data = {
+                        "flow_id": flow_id,
+                        "flow_name": workflow.get("name", "Unnamed Workflow"),
+                        "description": workflow.get("description", ""),
+                        "is_active": True,
+                        "created_at": n8n_created_at
+                    }
+                    
+                    await database_service.add_n8n_flow(flow_data)
+                    stats["new"] += 1
+                    app_logger.info(f"Added new workflow: {flow_id} - {flow_data['flow_name']}")
+                    
+                except Exception as e:
+                    stats["error"] += 1
+                    app_logger.error(f"Error processing workflow {workflow.get('id')}: {e}")
+            
+            app_logger.info(f"Workflow sync completed: {stats}")
+            return stats
+            
+        except Exception as e:
+            app_logger.error(f"Failed to sync workflows: {e}")
+            return {"error": str(e)}
+    
+    def _parse_datetime(self, dt_str):
+        """Parse datetime string to datetime object without timezone info"""
+        if not dt_str:
+            return None
+        try:
+            from datetime import datetime
+            # Parse with timezone, then remove timezone info
+            dt = datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
+            return dt.replace(tzinfo=None)
+        except Exception as e:
+            app_logger.error(f"Error parsing datetime {dt_str}: {e}")
+            return None
+    
     async def collect_n8n_executions(self):
         """Collect new executions from n8n for all active flows"""
         try:
@@ -45,7 +129,6 @@ class SchedulerService:
             
             # Get all active flows from database
             active_flows = await database_service.get_active_flows()
-            print(active_flows)
             total_new_executions = 0
             
             for flow in active_flows:
