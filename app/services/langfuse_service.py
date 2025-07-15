@@ -9,8 +9,8 @@ from app.utils.logger import app_logger
 class LangfuseService:
     def __init__(self):
         self.langfuse = Langfuse(
-            secret_key='sk-lf-40484669-8a8e-4fdf-8f70-296c2deef06a',
-            public_key='pk-lf-e2285dc1-130f-46a0-a4ec-309e7cf3be98',
+            secret_key=settings.langfuse_secret_key,#'sk-lf-40484669-8a8e-4fdf-8f70-296c2deef06a',
+            public_key=settings.langfuse_public_key,#'pk-lf-e2285dc1-130f-46a0-a4ec-309e7cf3be98',
             host=settings.langfuse_host
         )
     
