@@ -1,7 +1,7 @@
 import os
 from langfuse import Langfuse
 from typing import Dict, Any
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 
 from app.configs.settings import settings
 from app.utils.logger import app_logger
@@ -42,7 +42,7 @@ class LangfuseService:
                     "last_node_executed": execution_data.get("data", {}).get("resultData", {}).get("lastNodeExecuted"),
                     "total_latency_ms": total_latency
                 },
-                usage=total_tokens,
+                tokens=total_tokens,
                 start_time=self._parse_datetime(execution_data.get("startedAt")),
                 end_time=self._parse_datetime(execution_data.get("stoppedAt")),
                 tags=["n8n", "workflow", execution_data.get("status", "unknown")]
@@ -109,7 +109,7 @@ class LangfuseService:
                     input_data = run["inputOverride"]
                 elif run.get("source"):
                     # This node has input from previous nodes
-                    input_data = {"from_nodes": [src.get("previousNode") for src in run["source"]]}
+                    input_data = {"from_nodes": [src.get("previousNode") for src in run["source"] if src is not None]}
                 
                 # Extract output data - check different data types
                 output_data = {}
