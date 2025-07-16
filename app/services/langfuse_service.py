@@ -144,15 +144,30 @@ class LangfuseService:
                 if run.get("metadata", {}).get("parentExecution"):
                     span_metadata["parent_execution"] = run["metadata"]["parentExecution"]
                 
-                trace.span(
+                span = trace.span(
                     name=f"{node_name}" if i == 0 else f"{node_name}-{i}",
                     input=input_data,
                     output=output_data,
                     start_time=start_time,
                     end_time=end_time,
-                    metadata=span_metadata,
-                    usage=token_usage if token_usage else None
+                    metadata=span_metadata
                 )
+                
+                # Add generation for AI model nodes to track costs and tokens
+                if run.get("data", {}).get("ai_languageModel") and token_usage:
+                    model_name = self._extract_model_name(run)
+                    prompt = self._extract_prompt(run)
+                    completion = self._extract_completion(run)
+                    
+                    if model_name:
+                        span.generation(
+                            model=model_name,
+                            input=prompt or input_data,
+                            output=completion or output_data,
+                            usage=token_usage,
+                            start_time=start_time,
+                            end_time=end_time
+                        )
     def _calculate_totals(self, execution_data: Dict[str, Any]) -> tuple:
         """Calculate total latency and token usage across all nodes"""
         total_latency = 0
@@ -174,6 +189,7 @@ class LangfuseService:
                     total_tokens["total"] += token_usage.get("total", 0)
         
         return total_latency, total_tokens if total_tokens["total"] > 0 else None
+
 
     def _extract_token_usage(self, run: Dict[str, Any]) -> Dict[str, Any]:
         """Extract token usage from AI model nodes"""
@@ -199,6 +215,113 @@ class LangfuseService:
                     "total": token_usage.get("totalTokens", 0)
                 }
         
+        return None
+
+    def _extract_model_name(self, run: Dict[str, Any]) -> str:
+        """Extract model name from AI node run data"""
+        try:
+            # For Google Gemini
+            if run.get("inputOverride", {}).get("ai_languageModel"):
+                options = run["inputOverride"]["ai_languageModel"][0][0].get("json", {}).get("options", {})
+                return options.get("model_name", "unknown-model")
+            
+            # For OpenAI
+            if run.get("data", {}).get("ai_languageModel"):
+                ai_data = run["data"]["ai_languageModel"]
+                if ai_data and ai_data[0] and ai_data[0][0].get("json"):
+                    return ai_data[0][0].get("json", {}).get("model", "unknown-model")
+            
+            # Default fallback
+            return "unknown-model"
+        except Exception:
+            return "unknown-model"
+    
+    def _extract_prompt(self, run: Dict[str, Any]) -> str:
+        """Extract prompt text from AI node run data"""
+        try:
+            # For nodes with messages array
+            if run.get("inputOverride", {}).get("ai_languageModel"):
+                messages = run["inputOverride"]["ai_languageModel"][0][0].get("json", {}).get("messages", [])
+                if isinstance(messages, list) and messages:
+                    return str(messages[0]) if messages else ""
+                return str(messages)
+            
+            # For nodes with direct prompt
+            if run.get("inputOverride", {}).get("prompt"):
+                return str(run["inputOverride"]["prompt"])
+            
+            # Return JSON representation of input as fallback
+            return str(run.get("inputOverride", {}))
+        except Exception:
+            return ""
+    
+    def _extract_completion(self, run: Dict[str, Any]) -> str:
+        """Extract completion text from AI node run data"""
+        try:
+            # For Google Gemini
+            if run.get("data", {}).get("ai_languageModel"):
+                ai_data = run["data"]["ai_languageModel"]
+                if ai_data and ai_data[0] and ai_data[0][0].get("json"):
+                    response = ai_data[0][0]["json"].get("response", {})
+                    
+                    # Handle different response formats
+                    if isinstance(response, str):
+                        return response
+                    
+                    # Handle Gemini format
+                    if response.get("generations"):
+                        generations = response["generations"]
+                        if generations and generations[0] and generations[0][0]:
+                            return generations[0][0].get("text", "")
+                    
+                    # Handle OpenAI format
+                    if response.get("choices"):
+                        choices = response["choices"]
+                        if choices and choices[0]:
+                            return choices[0].get("message", {}).get("content", "")
+            
+            # Return string representation of output as fallback
+            return str(run.get("data", {}).get("main", [{}])[0][0].get("json", {}))
+        except Exception:
+            return ""
+
+    def _parse_datetime_from_timestamp(self, timestamp: int) -> datetime:
+        """Parse timestamp to datetime object"""
+        if not timestamp:
+            return None
+        try:
+            return datetime.fromtimestamp(timestamp / 1000, tz=timezone.utc)
+        except:
+            return None
+
+    def _parse_datetime(self, dt_str: str) -> datetime:
+        """Parse datetime string to datetime object"""
+        if not dt_str:
+            return None
+        try:
+            return datetime.fromisoformat(dt_str.replace('Z', '+00:00'))
+        except:
+            return None
+
+        if run.get("data", {}).get("ai_languageModel"):
+            ai_data = run["data"]["ai_languageModel"]
+            if ai_data and ai_data[0] and ai_data[0][0].get("json", {}).get("tokenUsage"):
+                token_usage = ai_data[0][0]["json"]["tokenUsage"]
+                return {
+                    "input": token_usage.get("promptTokens", 0),
+                    "output": token_usage.get("completionTokens", 0),
+                    "total": token_usage.get("totalTokens", 0)
+                }
+        # Check in response data for nested token usage
+        if run.get("data", {}).get("ai_languageModel"):
+            ai_data = run["data"]["ai_languageModel"]
+            if ai_data and ai_data[0] and ai_data[0][0].get("json", {}).get("response", {}).get("tokenUsage"):
+                token_usage = ai_data[0][0]["json"]["response"]["tokenUsage"]
+                return {
+                    "input": token_usage.get("promptTokens", 0),
+                    "output": token_usage.get("completionTokens", 0),
+                    "total": token_usage.get("totalTokens", 0)
+                }
         return None
 
     def _parse_datetime_from_timestamp(self, timestamp: int) -> datetime:
