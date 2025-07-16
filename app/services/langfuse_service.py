@@ -52,7 +52,6 @@ class LangfuseService:
             if execution_data.get("data", {}).get("resultData", {}).get("runData"):
                 self._add_node_spans(trace, execution_data["data"]["resultData"]["runData"])
             
-            print(trace.id)
             # Flush to ensure trace is sent immediately
             self.langfuse.flush()
             
