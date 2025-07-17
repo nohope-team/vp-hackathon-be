@@ -19,7 +19,7 @@ class DatabaseService:
         conn = await self.get_connection()
         try:
             rows = await conn.fetch(
-                "SELECT * FROM facebook_workflow_data ORDER BY id LIMIT $1 OFFSET $2",
+                "SELECT * FROM facebook_workflow_data ORDER BY id DESC LIMIT $1 OFFSET $2",
                 limit, offset
             )
             return [dict(row) for row in rows]
