@@ -1,130 +1,136 @@
 # Multi-Agent Platform Backend
 
-Hệ thống backend FastAPI cho multi-agent platform sử dụng Amazon Bedrock Architecture.
+FastAPI backend system for a multi-agent platform using Amazon Bedrock Architecture and n8n workflow integration with Langfuse observability.
 
-## Kiến trúc
+## Architecture
 
 ```
 API Gateway → FastAPI → Step Functions (SuperAgent) → Bedrock Agents (SubAgents)
                     ↓
             SQS/SNS → Lambda (Tools/Plugins)
                     ↓
-            DynamoDB (State) + S3 (Logs) + CloudWatch/X-Ray (Monitoring)
+            PostgreSQL (State) + Langfuse (Observability) + CloudWatch (Monitoring)
 ```
 
-## Tính năng
+## Features
 
-- ✅ REST API endpoint `/chat` để nhận yêu cầu từ client
-- ✅ Tích hợp Step Functions để khởi tạo SuperAgent orchestrator
-- ✅ Giao tiếp với Amazon Bedrock để tạo và quản lý SubAgents
-- ✅ Hỗ trợ SQS/SNS để tích hợp Lambda functions
-- ✅ Lưu trữ state trong DynamoDB và logs trong S3
-- ✅ Monitoring với CloudWatch và X-Ray tracing
+- ✅ REST API endpoint `/chat` for client requests
+- ✅ Step Functions integration for SuperAgent orchestration
+- ✅ Amazon Bedrock integration for SubAgents management
+- ✅ SQS/SNS support for Lambda function integration
+- ✅ n8n workflow execution tracking and monitoring
+- ✅ Langfuse integration for AI observability and cost tracking
+- ✅ Facebook Messenger webhook integration
 - ✅ Structured JSON logging
 - ✅ Docker containerization
 - ✅ Swagger UI/ReDoc documentation
 
-## Cài đặt Local
+## Local Setup
 
-### Yêu cầu
+### Requirements
 - Python 3.10+
 - Docker & Docker Compose
-- AWS CLI configured
+- PostgreSQL database
+- n8n instance (optional)
+- Langfuse account (optional)
 
-### Bước 1: Clone và setup
+### Step 1: Clone and setup
 ```bash
 git clone <repository>
-cd VPHackathon
+cd VPHackathon/be
 ```
 
-### Bước 2: Cấu hình môi trường
+### Step 2: Configure environment
 ```bash
-# Copy và chỉnh sửa file .env
+# Copy and edit .env file
 cp .env.example .env
-# Cập nhật các giá trị AWS credentials và ARNs
+# Update AWS credentials, database URL, and API keys
 ```
 
-### Bước 3: Cài đặt dependencies
+### Step 3: Install dependencies
 ```bash
-# Tạo virtual environment
+# Create virtual environment
 python -m venv venv
 venv\Scripts\activate  # Windows
 # source venv/bin/activate  # Linux/Mac
 
-# Cài đặt packages
+# Install packages
 pip install -r requirements.txt
 ```
 
-### Bước 4: Chạy ứng dụng
+### Step 4: Run the application
 
-#### Option 1: Chạy trực tiếp
+#### Option 1: Run directly
 ```bash
 python -m uvicorn app.main:app --reload --host 0.0.0.0 --port 8000
 ```
 
-#### Option 2: Sử dụng Docker
+#### Option 2: Using Docker
 ```bash
-# Build và chạy
+# Build and run
 docker-compose up --build
-
-# Chạy với local DynamoDB
-docker-compose --profile local up --build
-
-# Chạy với X-Ray daemon
-docker-compose --profile xray up --build
 ```
 
 ## API Usage
 
-### Bedrock Flow Endpoints
+### Facebook Workflow Endpoints
 
-#### Create Flow from JSON Config
+#### Get Workflows
 ```bash
-curl -X POST "http://localhost:8000/api/v1/flow/create" \
-  -H "Content-Type: application/json" \
-  -d @examples/flow_config.json
+curl -X GET "http://localhost:8000/api/v1/facebook-workflow?limit=10&offset=0"
 ```
 
-#### Create Multi-Agent Flow
+#### Get Workflow by ID
 ```bash
-curl -X POST "http://localhost:8000/api/v1/flow/create-multi-agent" \
-  -H "Content-Type: application/json" \
-  -d @examples/multi_agent_config.json
+curl -X GET "http://localhost:8000/api/v1/facebook-workflow/1"
 ```
 
-#### Execute Flow
+#### Create Workflow
 ```bash
-curl -X POST "http://localhost:8000/api/v1/flow/execute" \
+curl -X POST "http://localhost:8000/api/v1/facebook-workflow/" \
   -H "Content-Type: application/json" \
   -d '{
-    "flow_name": "CustomerSupportMultiAgent",
-    "inputs": {
-      "customer_query": "I need help with my order"
-    },
-    "session_id": "flow-session-123"
+    "user_question": "How to reset my password?",
+    "chatbot_intent": "support",
+    "vpbank_source": "mobile_app",
+    "confidence_score": 90,
+    "sender_id": 1234567890,
+    "recipient_id": 9876543210,
+    "page_name": "VPBank Support"
   }'
 ```
 
-### Chat Endpoint
+#### Update Workflow
 ```bash
-curl -X POST "http://localhost:8000/api/v1/chat" \
+curl -X PUT "http://localhost:8000/api/v1/facebook-workflow/1" \
   -H "Content-Type: application/json" \
   -d '{
-    "message": "Analyze the market trends for Q4 2024",
-    "session_id": "test-session-123",
-    "user_id": "user-456"
+    "answer": "To reset your password, please follow these steps...",
+    "state": "answered"
   }'
 ```
 
-### Response Format
-```json
-{
-  "response": "Multi-Agent Analysis Results:\n\nAgent 1 Response:\nSubAgent-1 processed: Analyze the market trends for Q4 2024... Analysis complete.\n\nAgent 2 Response:\nSubAgent-2 analyzed: Analyze the market trends for Q4 2024... Recommendations generated.\n\nAgent 3 Response:\nSubAgent-3 reviewed: Analyze the market trends for Q4 2024... Quality check passed.\n\nSummary: Processed by 3 agents successfully.",
-  "session_id": "test-session-123",
-  "agents_used": ["AnalysisAgent", "RecommendationAgent", "QualityAgent"],
-  "execution_time": 2.45,
-  "status": "completed"
-}
+### n8n Workflow Endpoints
+
+#### Sync Workflows
+```bash
+curl -X POST "http://localhost:8000/api/v1/workflow/sync"
+```
+
+#### Get n8n Flows
+```bash
+curl -X GET "http://localhost:8000/api/v1/n8n-flow"
+```
+
+#### Add n8n Flow
+```bash
+curl -X POST "http://localhost:8000/api/v1/n8n-flow/" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "flow_id": "workflow-id-from-n8n",
+    "flow_name": "Customer Support Flow",
+    "description": "Handles customer support requests"
+  }'
 ```
 
 ### Health Check
@@ -133,189 +139,126 @@ curl http://localhost:8000/api/v1/health
 ```
 
 ### Swagger UI
-Truy cập giao diện Swagger để test API:
+Access the Swagger UI to test the API:
 - **Swagger UI**: http://localhost:8000/docs
 - **ReDoc**: http://localhost:8000/redoc
 - **OpenAPI JSON**: http://localhost:8000/openapi.json
 
-## AWS Services Setup
+## Database Setup
 
-### 1. DynamoDB Table
+### PostgreSQL Tables
+```sql
+-- Facebook Workflow Data
+CREATE TABLE facebook_workflow_data (
+    id SERIAL PRIMARY KEY,
+    user_question TEXT NOT NULL,
+    chatbot_intent VARCHAR(100) NOT NULL,
+    vpbank_source VARCHAR(100),
+    confidence_score INTEGER,
+    answer TEXT,
+    state VARCHAR(50) DEFAULT 'pending',
+    sender_id BIGINT,
+    recipient_id BIGINT,
+    page_name VARCHAR(255),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- n8n Executions
+CREATE TABLE n8n_executions (
+    id INTEGER PRIMARY KEY,
+    workflow_id VARCHAR(100) NOT NULL,
+    status VARCHAR(20) NOT NULL,
+    started_at TIMESTAMP,
+    finished_at TIMESTAMP,
+    execution_data JSONB,
+    processed BOOLEAN DEFAULT FALSE,
+    langfuse_trace_id VARCHAR(100),
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- n8n Flows
+CREATE TABLE n8n_flows (
+    id SERIAL PRIMARY KEY,
+    flow_id VARCHAR(100) UNIQUE NOT NULL,
+    flow_name VARCHAR(255),
+    description TEXT,
+    is_active BOOLEAN DEFAULT TRUE,
+    n8n_created_at TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+```
+
+## Scheduler Jobs
+
+The application includes several scheduled jobs:
+
+1. **n8n Workflow Sync** - Runs every 5 minutes to sync active workflows from n8n
+2. **n8n Execution Collection** - Runs every minute to collect new workflow executions
+3. **Langfuse Processing** - Runs every minute to process executions to Langfuse
+
+## Environment Variables
+
+```
+# Database Configuration
+DATABASE_URL=postgresql://user:password@host:5432/dbname
+
+# n8n Configuration
+N8N_BASE_URL=https://your-n8n-host.com
+N8N_API_KEY=your_n8n_api_key
+N8N_WORKFLOW_ID=your_workflow_id
+
+# Langfuse Configuration
+LANGFUSE_SECRET_KEY=your_langfuse_secret_key
+LANGFUSE_PUBLIC_KEY=your_langfuse_public_key
+LANGFUSE_HOST=https://cloud.langfuse.com
+
+# Facebook Webhook
+FACEBOOK_WEBHOOK_URL=https://your-webhook-url
+```
+
+## Deployment
+
+### Docker Deployment
 ```bash
-aws dynamodb create-table \
-  --table-name multi-agent-state \
-  --attribute-definitions AttributeName=session_id,AttributeType=S \
-  --key-schema AttributeName=session_id,KeyType=HASH \
-  --billing-mode PAY_PER_REQUEST
-```
-
-### 2. S3 Bucket
-```bash
-aws s3 mb s3://multi-agent-logs
-```
-
-### 3. Step Functions State Machine
-```json
-{
-  "Comment": "Multi-Agent Orchestrator",
-  "StartAt": "InitializeSuperAgent",
-  "States": {
-    "InitializeSuperAgent": {
-      "Type": "Task",
-      "Resource": "arn:aws:states:::lambda:invoke",
-      "Parameters": {
-        "FunctionName": "SuperAgentFunction",
-        "Payload.$": "$"
-      },
-      "End": true
-    }
-  }
-}
-```
-
-### 4. IAM Role
-```json
-{
-  "Version": "2012-10-17",
-  "Statement": [
-    {
-      "Effect": "Allow",
-      "Action": [
-        "bedrock:InvokeAgent",
-        "bedrock:InvokeModel",
-        "states:StartExecution",
-        "dynamodb:PutItem",
-        "dynamodb:GetItem",
-        "s3:PutObject",
-        "sqs:SendMessage",
-        "sns:Publish",
-        "xray:PutTraceSegments",
-        "xray:PutTelemetryRecords"
-      ],
-      "Resource": "*"
-    }
-  ]
-}
-```
-
-## Deploy lên AWS
-
-### ECS Deployment
-```bash
-# Build và push image
+# Build and run with Docker
 docker build -t multi-agent-platform .
-docker tag multi-agent-platform:latest <account-id>.dkr.ecr.<region>.amazonaws.com/multi-agent-platform:latest
-docker push <account-id>.dkr.ecr.<region>.amazonaws.com/multi-agent-platform:latest
-
-# Deploy ECS service
-aws ecs create-service \
-  --cluster multi-agent-cluster \
-  --service-name multi-agent-service \
-  --task-definition multi-agent-task \
-  --desired-count 2
+docker run -p 8000:8000 -d multi-agent-platform
 ```
 
-### EKS Deployment
-```yaml
-# k8s-deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: multi-agent-platform
-spec:
-  replicas: 3
-  selector:
-    matchLabels:
-      app: multi-agent-platform
-  template:
-    metadata:
-      labels:
-        app: multi-agent-platform
-    spec:
-      containers:
-      - name: api
-        image: <account-id>.dkr.ecr.<region>.amazonaws.com/multi-agent-platform:latest
-        ports:
-        - containerPort: 8000
-        env:
-        - name: AWS_REGION
-          value: "us-east-1"
-        # Add other environment variables
-```
+### Cloud Deployment
+The application can be deployed to various cloud platforms:
 
-```bash
-kubectl apply -f k8s-deployment.yaml
-```
+- **AWS ECS/Fargate**: For containerized deployment
+- **AWS Lambda**: For serverless deployment with API Gateway
+- **Kubernetes**: For container orchestration
 
 ## Monitoring
 
-### CloudWatch Logs
-- Application logs: `/aws/ecs/multi-agent-platform`
-- Structured JSON format với timestamp, level, message
+### Langfuse Observability
+- AI model usage tracking
+- Token consumption and cost estimation
+- Latency monitoring
+- Trace visualization
 
-### X-Ray Tracing
-- Trace requests qua các AWS services
-- Performance monitoring cho từng agent execution
+### Application Logs
+- Structured JSON format with timestamp, level, message
+- Log levels: DEBUG, INFO, WARNING, ERROR
 
-### Metrics
-- Request count và latency
-- Agent execution success/failure rates
-- DynamoDB và S3 operation metrics
-
-## Development
-
-### Cấu trúc thư mục
+## Project Structure
 ```
 app/
 ├── configs/          # Configuration settings
 ├── models/           # Pydantic schemas
 ├── routes/           # FastAPI routes
 ├── services/         # Business logic services
+│   ├── database_service.py    # Database operations
+│   ├── langfuse_service.py    # Langfuse integration
+│   ├── n8n_service.py         # n8n API integration
+│   ├── scheduler_service.py   # Background jobs
+│   └── webhook_service.py     # Webhook integration
 ├── utils/            # Utility functions
-└── main.py          # Application entry point
+└── main.py           # Application entry point
 ```
-
-### Testing
-```bash
-# Chạy tests (khi có)
-pytest tests/
-
-# Test với mock data
-python -m pytest tests/ -v
-```
-
-### Logging
-- Sử dụng structured JSON logging
-- Log levels: DEBUG, INFO, WARNING, ERROR
-- Automatic log rotation và retention
-
-## Troubleshooting
-
-### Common Issues
-
-1. **AWS Credentials**
-   ```bash
-   aws configure
-   # hoặc set environment variables
-   ```
-
-2. **DynamoDB Connection**
-   ```bash
-   # Test connection
-   aws dynamodb list-tables
-   ```
-
-3. **Bedrock Access**
-   ```bash
-   # Enable Bedrock models
-   aws bedrock list-foundation-models
-   ```
-
-4. **Docker Issues**
-   ```bash
-   # Rebuild without cache
-   docker-compose build --no-cache
-   ```
 
 ## License
 
