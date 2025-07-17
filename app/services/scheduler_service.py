@@ -14,32 +14,49 @@ class SchedulerService:
     
     def start(self):
         """Start the scheduler with jobs"""
-        # Job 1: Sync n8n workflows every 5 minutes
-        self.scheduler.add_job(
-            self.sync_workflows,
-            trigger=IntervalTrigger(minutes=1),
-            id="sync_workflows",
-            name="Sync n8n Workflows"
-        )
-        
-        # Job 2: Collect n8n executions every minute
-        self.scheduler.add_job(
-            self.collect_n8n_executions,
-            trigger=IntervalTrigger(minutes=1),
-            id="collect_n8n_executions",
-            name="Collect n8n Executions"
-        )
-        
-        # Job 3: Process executions to Langfuse every minute
-        self.scheduler.add_job(
-            self.process_executions_to_langfuse,
-            trigger=IntervalTrigger(minutes=1),
-            id="process_to_langfuse",
-            name="Process Executions to Langfuse"
-        )
-        
-        self.scheduler.start()
-        app_logger.info("Scheduler started with n8n collection and Langfuse processing jobs")
+        try:
+            # Job 1: Sync n8n workflows every 5 minutes
+            self.scheduler.add_job(
+                self._safe_execute(self.sync_workflows),
+                trigger=IntervalTrigger(minutes=5),  # Changed to 5 minutes
+                id="sync_workflows",
+                name="Sync n8n Workflows",
+                max_instances=1
+            )
+            
+            # Job 2: Collect n8n executions every minute
+            self.scheduler.add_job(
+                self._safe_execute(self.collect_n8n_executions),
+                trigger=IntervalTrigger(minutes=1),
+                id="collect_n8n_executions",
+                name="Collect n8n Executions",
+                max_instances=1
+            )
+            
+            # Job 3: Process executions to Langfuse every minute
+            self.scheduler.add_job(
+                self._safe_execute(self.process_executions_to_langfuse),
+                trigger=IntervalTrigger(minutes=1),
+                id="process_to_langfuse",
+                name="Process Executions to Langfuse",
+                max_instances=1
+            )
+            
+            self.scheduler.start()
+            app_logger.info("Scheduler started with n8n collection and Langfuse processing jobs")
+        except Exception as e:
+            app_logger.error(f"Failed to start scheduler: {e}")
+            # Continue app execution even if scheduler fails
+    
+    def _safe_execute(self, func):
+        """Wrapper to ensure job exceptions don't crash the scheduler"""
+        async def wrapper():
+            try:
+                return await func()
+            except Exception as e:
+                app_logger.error(f"Job error in {func.__name__}: {e}")
+                # Don't re-raise the exception to prevent scheduler crashes
+        return wrapper
     
     def stop(self):
         """Stop the scheduler"""
@@ -160,24 +177,40 @@ class SchedulerService:
         try:
             app_logger.info("Starting Langfuse processing")
             
-            # Get unprocessed executions
-            unprocessed = await database_service.get_unprocessed_executions()
+            # Get unprocessed executions - limit to 5 at a time to avoid payload size issues
+            unprocessed = await database_service.get_unprocessed_executions(limit=5)
             
             for execution in unprocessed:
                 try:
+                    # Check execution data size before processing
+                    execution_data = json.loads(execution["execution_data"])
+                    data_size = len(json.dumps(execution_data))
+                    
+                    # Skip if data is too large (> 1MB)
+                    if data_size > 1_000_000:  # 1MB limit
+                        app_logger.warning(f"Execution {execution['id']} data too large ({data_size} bytes), marking as processed without sending to Langfuse")
+                        await database_service.mark_execution_processed(execution["id"], "skipped_size_limit")
+                        continue
+                    
                     # Create Langfuse trace
-                    trace_id = langfuse_service.create_trace_from_execution(json.loads(execution["execution_data"]))
+                    trace_id = langfuse_service.create_trace_from_execution(execution_data)
                     
                     if trace_id:
                         # Mark as processed
                         await database_service.mark_execution_processed(execution["id"], trace_id)
                         app_logger.info(f"Processed execution {execution['id']} to Langfuse trace {trace_id}")
+                    else:
+                        # Mark as processed even if trace_id is None to avoid reprocessing
+                        await database_service.mark_execution_processed(execution["id"], "failed_no_trace_id")
+                        app_logger.warning(f"No trace ID returned for execution {execution['id']}, marking as processed")
                     
                     # Add delay between traces to ensure proper ingestion
-                    await asyncio.sleep(0.5)
+                    await asyncio.sleep(1.0)  # Increased delay to 1 second
                     
                 except Exception as e:
                     app_logger.error(f"Error processing execution {execution['id']}: {e}")
+                    # Mark as processed to avoid reprocessing the same problematic execution
+                    await database_service.mark_execution_processed(execution["id"], f"error_{str(e)[:50]}")
             
             app_logger.info(f"Processed {len(unprocessed)} executions to Langfuse")
             

@@ -114,11 +114,12 @@ class DatabaseService:
         finally:
             await conn.close()
     
-    async def get_unprocessed_executions(self) -> List[Dict[str, Any]]:
+    async def get_unprocessed_executions(self, limit: int = 100) -> List[Dict[str, Any]]:
         conn = await self.get_connection()
         try:
             rows = await conn.fetch(
-                "SELECT * FROM n8n_executions WHERE processed = false ORDER BY id"
+                "SELECT * FROM n8n_executions WHERE processed = false ORDER BY id LIMIT $1",
+                limit
             )
             return [dict(row) for row in rows]
         finally:
