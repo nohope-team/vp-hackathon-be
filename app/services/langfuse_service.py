@@ -30,7 +30,7 @@ class LangfuseService:
             total_latency, total_tokens = self._calculate_totals(execution_data)
 
             trace = self.langfuse.trace(
-                name=f"{workflow_name}-{execution_data['id']}",
+                name=f"{workflow_name}",
                 input=initial_input,
                 output=final_output,
                 metadata={
