@@ -222,7 +222,7 @@ class LangfuseService:
             # For Google Gemini
             if run.get("inputOverride", {}).get("ai_languageModel"):
                 options = run["inputOverride"]["ai_languageModel"][0][0].get("json", {}).get("options", {})
-                return options.get("model_name", "unknown-model")
+                return options.get("model", "unknown-model")
             
             # For OpenAI
             if run.get("data", {}).get("ai_languageModel"):
