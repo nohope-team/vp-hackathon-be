@@ -94,9 +94,6 @@ class DatabaseService:
     # n8n execution methods
     async def save_n8n_execution(self, execution_data: dict) -> None:
         conn = await self.get_connection()
-        print(
-                isoparse(execution_data.get("startedAt"))
-            )
         try:
             await conn.execute(
                 """
