@@ -63,7 +63,7 @@ async def startup_event():
     app_logger.info(f"AWS Region: {settings.aws_region}")
     
     # Start scheduler for n8n collection and Langfuse processing
-    scheduler_service.start()
+    # scheduler_service.start()
 
 
 @app.on_event("shutdown")
