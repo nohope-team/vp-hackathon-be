@@ -19,7 +19,6 @@ class WebhookService:
                 "sender_id": sender_id,
                 "recipient_id": recipient_id
             }
-            print(payload)
             async with httpx.AsyncClient() as client:
                 response = await client.post(
                     self.webhook_url,
