@@ -26,6 +26,15 @@ class DatabaseService:
         finally:
             await conn.close()
     
+    async def get_facebook_workflows_count(self) -> int:
+        """Get total count of Facebook workflow records"""
+        conn = await self.get_connection()
+        try:
+            count = await conn.fetchval("SELECT COUNT(*) FROM facebook_workflow_data")
+            return count
+        finally:
+            await conn.close()
+    
     async def get_facebook_workflow_by_id(self, workflow_id: int) -> Optional[Dict[str, Any]]:
         conn = await self.get_connection()
         try:
